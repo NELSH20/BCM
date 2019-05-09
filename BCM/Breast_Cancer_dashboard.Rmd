@@ -1,0 +1,402 @@
+---
+title: "BCM Team"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: row
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+#library(DT)
+#library(rpivotTable)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+#library(openintro)
+library(highcharter)
+#library(ggvis)
+```
+
+
+```{r}
+data<- read.csv("BreastCancer_DATA.csv")
+```
+
+```{r}
+mycolors<- c("blue", "#FFC125", "darkgreen", "darkorange")
+```
+
+Interactive Data Visualation
+=======================================
+
+colume
+---------------------------------------
+
+### Breast Cancer Analysis
+```{r}
+valueBox(paste("Tumor"),
+         color = "warning")
+```
+
+### Patients in US
+
+```{r}
+valueBox(length(data$race),
+         icon = "fa-user")
+```
+
+### **Malignan**
+
+```{r}
+gauge( sum(data$diagnosis == "M"),
+             min = 0,
+             max = 569,
+             gaugeSectors(success = c(0,150),
+                          warning = c(150,240),
+                          danger = c(240,569),
+                          colors = c('green', 'yellow', 'red')))
+```
+
+### White
+
+```{r}
+valueBox( sum(data$race == "White"),
+          icon = 'fa-building' )
+```
+
+### African - America
+```{r}
+valueBox( sum(data$race == "Black"),
+          icon = 'fa-building'
+          )
+```
+
+### Hispanic
+```{r}
+valueBox( sum(data$race == "Hispanic"),
+          icon = "fa-building")
+```
+
+### Asian
+```{r}
+valueBox( sum(data$race == "Asian"),
+          icon = "fa-building")
+```
+
+Row
+----------------------------
+
+### Plot1
+
+```{r}
+p2 <-  ggplot( data, aes( x= race, fill = diagnosis)) + 
+          geom_bar( stat = "count") +
+          labs(title = "Race: Benign/Malignant") +
+          guides(fill=guide_legend(title="Benign/Malignant"))
+p2.2 <- ggplotly(p2)
+p2.2
+```
+
+
+### Plot 2
+
+```{r}
+p2 <-  ggplot( data, aes( x= age, fill = diagnosis)) + 
+          geom_bar( stat = "count") +
+          labs(title = "Age: Benign/Malignant") +
+          guides(fill=guide_legend(title="Benign/Malignant"))
+p2.2 <- ggplotly(p2)
+p2.2
+```
+
+Map
+=================================================
+
+
+```{r}
+data <- read.csv("USCS_OverviewMap.csv")
+
+p5 <- data %>%
+          select(State = Area, Population) %>%
+            mutate( State = as.character(State))
+
+highchart() %>%
+            hc_title( text = "Breast Cancer in US",
+                      style = list(color = "blue",
+                                   useHTML = TRUE)) %>%
+            hc_subtitle( text = "Soure: BreastCance.csv") %>%
+            hc_add_series_map( usgeojson,
+                               p5,
+                               name = "State", 
+                               value = "Population", 
+                               joinBy = c("woename", "State")) %>%
+           hc_mapNavigation( enabled = TRUE)
+```
+
+Data exploration
+==============================================
+
+
+
+Row
+-------------------------
+
+### Distribution of Cell Perimeter 
+
+```{r}
+data<- read.csv("BreastCancer_DATA.csv")
+
+breast.cancer <- data
+
+ggplot(breast.cancer, aes(x=breast.cancer$perimeter.worst,
+                          group=breast.cancer$diagnosis,
+                          fill=breast.cancer$diagnosis)) +
+       geom_histogram(position="identity",binwidth=10, alpha = .5) + 
+      theme_bw() + 
+      xlab("Worst Perimeter") + 
+      ylab("Number of Patients") + 
+      ggtitle("Distribution of Cell Perimeter by Diagnosis Group") + 
+      guides(fill=guide_legend(title="Benign/Malignant"))
+```
+
+### Distribution of Cell Area
+
+```{r}
+ggplot(breast.cancer, aes(x=breast.cancer$area.worst,
+                          group=breast.cancer$diagnosis,
+                          fill=breast.cancer$diagnosis)) +
+       geom_density(position="identity",binwidth=10, alpha = .5) + 
+      theme_bw() + 
+      xlab("Area") + 
+      ylab("Frequency") + 
+      ggtitle("Distribution of Area by Diagnosis Group") + 
+      guides(fill=guide_legend(title="Benign/Malignant"))
+```
+
+
+
+Row
+-------------------------
+
+### Distribution of Cell Compactness
+
+
+```{r}
+ggplot(breast.cancer, aes(x=breast.cancer$compactness.worst,
+                          group=breast.cancer$diagnosis,
+                          fill=breast.cancer$diagnosis)) +
+       geom_density(position="identity",binwidth=10, alpha = .5) + 
+      theme_bw() + 
+      xlab("Area") + 
+      ylab("Frequency") + 
+      ggtitle("Distribution of Compactness by Diagnosis Group") + 
+      guides(fill=guide_legend(title="Benign/Malignant"))
+```
+
+
+### Distribution of Cell Radius Worst 
+
+
+```{r}
+ggplot(breast.cancer, aes(x=breast.cancer$radius.mean,
+                          group=breast.cancer$diagnosis,
+                          fill=breast.cancer$diagnosis)) +
+       geom_density(position="identity",binwidth=10, alpha = .5) + 
+      theme_bw() + 
+      xlab("Area") + 
+      ylab("Frequency") + 
+      ggtitle("Distribution of Area by Diagnosis Group") + 
+      guides(fill=guide_legend(title="Benign/Malignant"))
+```
+
+
+Kmeans Model
+=========================
+
+Column {.sidebar data-width=500}
+---------------
+
+
+### Clustering with features
+
+```{r}
+Breast_Cancer_data <- read.csv("data.csv")
+Breast_Cancer_data$X<- NULL
+Breast_Cancer_data<- Breast_Cancer_data[,-1]
+Breast_Cancer_data$diagnosis<- factor(ifelse( Breast_Cancer_data$diagnosis == "B", "Benign", "Malignant"))
+
+library(factoextra)
+Breast_Cancer_data2<- transform(Breast_Cancer_data)
+
+all_pca <- prcomp(Breast_Cancer_data2[,-1], cor = TRUE, scale = TRUE)
+
+fviz_pca_biplot(all_pca, 
+                col.ind = Breast_Cancer_data$diagnosis, 
+                col = "black", 
+                palette = "jco",
+                geom = "point",
+                repel = TRUE,
+                legend.title = "Diagnosis",
+                addEllipses = TRUE)
+```
+
+```{r}
+nrows <- NROW(Breast_Cancer_data)
+
+set.seed(218)
+
+index <- sample(1: nrows, 0.7 * nrows)
+
+train <- Breast_Cancer_data[index,]
+test <- Breast_Cancer_data[-index,]
+```
+
+
+
+### Cluster plot
+
+```{r}
+predict.kmeans<- function(newdata, object){
+  centers <- object$centers
+  n_centers <- nrow(centers)
+  dist_mat <- as.matrix(dist(rbind(centers, newdata)))
+  dist_mat<- dist_mat[-seq(n_centers), seq(n_centers)]
+  max.col(-dist_mat)
+}
+
+learn_Kmeans <- kmeans(train[,-1], centers = 2)
+library(factoextra)
+learn_Kmeans$cluster<- ifelse(learn_Kmeans$cluster == 2, "Benign", "Malignant")
+fviz_cluster( learn_Kmeans, data = train[,-1])
+```
+
+
+Column 
+----------
+###Confusion Matrix 
+
+```{r}
+library(e1071)
+library(caret)
+
+predict.kmeans<- function(newdata, object){
+  centers <- object$centers
+  n_centers <- nrow(centers)
+  dist_mat <- as.matrix(dist(rbind(centers, newdata)))
+  dist_mat<- dist_mat[-seq(n_centers), seq(n_centers)]
+  max.col(-dist_mat)
+}
+
+learn_Kmeans <- kmeans(train[,-1], centers = 2)
+
+pre_kmeans <- predict.kmeans(test[,-1], learn_Kmeans)
+pre_kmeans<- as.factor(ifelse(pre_kmeans == 2 ,"Benign", "Malignant"))
+cm_kmeans <- confusionMatrix(pre_kmeans, test$diagnosis)
+cm_kmeans
+```
+
+SVM Model 
+=========================
+
+### Confusion Matrix
+
+
+```{r}
+library(e1071)
+learn_svm <- svm( diagnosis~., data = train)
+pre_svm <- predict(learn_svm, test[, -1])
+cm_svm<- confusionMatrix(pre_svm, test$diagnosis)
+cm_svm
+```
+
+
+Prediction: SVM model
+===================
+
+```{r}
+patient<- read.csv("data.csv", header = TRUE, stringsAsFactors = FALSE)
+patient$X<- NULL
+```
+
+**John: Patient number 20th**
+```{r}
+John<- patient[20,]   ## 20th patient
+John[,c(1,2)]         ## Benign
+```
+
+**Mary: Patient number 19th**
+```{r}
+Mary <- patient[19,]    ## 19th patient
+Mary[,c(1,2)]   
+```
+
+
+```{r}
+
+gamma <- seq(0, 0.1, 0.005)
+cost <- 2^(0:5)
+parms <- expand.grid(cost= cost, gamma = gamma) # 231
+
+acc_test<- numeric()
+accuracy1<- NULL
+accuracy2<- NULL
+  
+for(i in 1:NROW(parms)){
+  learn_svm<- svm( diagnosis~., data = train, gamma = parms$gamma[i], cost = parms$cost[i])
+  pre_svm <- predict(learn_svm, test[,-1])
+  accuracy1<- confusionMatrix(pre_svm, test$diagnosis)
+  accuracy2[i]<- accuracy1$overall[1]
+}
+
+acc <- data.frame( p = seq(1,NROW(parms)), cnt = accuracy2)
+
+
+opt_p <- subset(acc, cnt == max(cnt))[1,]
+sub <- paste("Optimal number of premeter is", opt_p$p, "(accuracy:", opt_p$cnt,") in C5.0")
+
+learn_imp_svm <- svm(diagnosis~., data = train, cost = parms$cost[opt_p$p], gamma = parms$gamma[opt_p$p])
+pre_imp_svm<- predict(learn_imp_svm, test[,-1])
+cm_imp_svm <- confusionMatrix(pre_imp_svm, test$diagnosis)
+
+# for print output 
+cancer_diagnosis_predict_p <- function(new, method = learn_svm){
+  new_pre <- predict(method, new[,-1])
+  new_res<- as.character(new_pre)
+  return(paste("Patient ID:", new[,1], " => Result: ", new_res, sep = ""))
+}
+
+
+# for submission output
+cancer_diagnosis_predict_s <- function(new, method = learn_svm){
+  new_pre <- predict(method, new[,-1])
+  new_res<- as.character(new_pre)
+  return(new_res)
+}
+```
+
+### Model Testing Function (Use only 1 test data)
+
+
+```{r}
+cancer_diagnosis_predict_p(John)
+```
+
+```{r}
+cancer_diagnosis_predict_p(Mary)
+```
+
+### Make Submission Output (Use test dataset)
+
+```{r}
+#library(kableExtra)
+t <- patient[-index,]
+origin<- t$diagnosis
+t$diagnosis<- NULL
+r <- cancer_diagnosis_predict_s(t)
+
+sub <- data.frame(id = t$id, predict_diagnosis = ifelse( r == "Malignant", "M", "B"), origin_diagnosis = origin)
+sub$correct <- ifelse(sub$predict_diagnosis == sub$origin_diagnosis, "True", "False")
+kable(head(sub,20))
+```

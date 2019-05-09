@@ -1,0 +1,537 @@
+---
+title: "Breast Cancer"
+author BCM team: "Franklin Ajisogun, Matilda Wysocki, Nelson Subervi, Malia Kniwght"
+date: "3/5/2019"
+output: html_document
+---
+
+```{r}
+Breast_Cancer_data <- read.csv("data.csv")
+Breast_Cancer_data$X<- NULL
+head(Breast_Cancer_data)
+```
+
+
+```{r}
+str(Breast_Cancer_data)
+```
+
+```{r}
+Breast_Cancer_data<- Breast_Cancer_data[,-1]
+Breast_Cancer_data$diagnosis<- factor(ifelse( Breast_Cancer_data$diagnosis == "B", "Benign", "Malignant"))
+```
+
+### 2-4) Innspect the datastes { .tabset}
+##### structure
+
+```{r}
+str(Breast_Cancer_data)
+```
+
+#### summary 
+```{r}
+summary(Breast_Cancer_data)
+```
+```{r}
+knitr::kable(head(Breast_Cancer_data))
+```
+
+----
+
+```{r}
+library(PerformanceAnalytics)
+chart.Correlation(Breast_Cancer_data[,c(2:11)], 
+                  histogram = TRUE,
+                  col = "grey10",
+                  pch = 1,
+                  main = "Cancer Mean")
+```
+
+```{r, eval=FALSE}
+library(psych)
+pairs.panels( Breast_Cancer_data[,c(12:21)],
+              method = "pearson",
+              hist.col = "#1fbbfa",
+              density = TRUE,
+              ellipses = TRUE,
+              show.points = TRUE,
+              pch = 1,
+              lm =TRUE,
+              cex.cor = 1,
+              smoother = FALSE,
+              stars = TRUE,
+              main = "Cancer SE")
+```
+```{r}
+library(ggplot2)
+library(GGally)
+ggpairs( Breast_Cancer_data[,c(22:31)],) +
+        theme_bw() +
+         labs(title = "Cancer Worst")+
+         theme(plot.title = element_text(face = "bold",
+                                         color = "black",
+                                         hjust = 0.5,
+                                         size = 13))
+```
+
+3-2) See the relation between each variable (daignosis include)
+
+i think viewing plot with diagnosis include is much more importment than combined data[3-1]
+
+```{r}
+str(Breast_Cancer_data)
+```
+
+
+```{r}
+ggpairs( Breast_Cancer_data[, c(2:11,1)],aes(color = diagnosis, alpha = 0.75), lower = list(continuous = "smooth")) + theme_bw() + labs(title = "Cancer Mean") + theme(plot.title = element_text(face ='bold', color = 'black', hjust = 0.5, size = 12))
+         
+```
+
+```{r}
+ggcorr( Breast_Cancer_data[, c(2:11)], name = "corr", label = TRUE) +
+  theme(legend.position = "none") + 
+  labs(title = "Cancer Mean")+ 
+  theme(plot.title = element_text( face = 'bold', 
+                                   color = 'black',
+                                   hjust = 0.5,
+                                   size = 12))
+```
+
+4. Principal Component Analysis (PCA)
+
+Too many variables can cause such problems brlow
+- Increased c
+
+
+```{r}
+library(factoextra)
+Breast_Cancer_data2<- transform(Breast_Cancer_data)
+```
+
+```{r}
+str(Breast_Cancer_data2)
+```
+
+```{r}
+all_pca <- prcomp(Breast_Cancer_data2[,-1], cor = TRUE, scale = TRUE)
+summary(all_pca)
+```
+```{r}
+mean_pca <- prcomp( Breast_Cancer_data2[, c(2:11)], scale = TRUE)
+summary(mean_pca)
+```
+
+```{r}
+fviz_eig( all_pca, addlabels = TRUE,
+                   ylim = c(0,60), 
+                   geom = c("bar", "line"), 
+                   barfill = "pink",
+                   barcolor = "grey",
+                   linecolor = "red",
+                   ncp = 10) +
+         labs( title = "Cancer All Variances - PCA", 
+                    x = "Principal Components",
+                    y = "% of variances")
+  
+```
+
+```{r}
+all_var <- get_pca_var(all_pca)
+all_var
+```
+
+
+
+Quility of respresentation of PCA
+
+- Correlation between variables and PCA
+```{r}
+library(corrplot)
+corrplot(all_var$cos2)
+```
+
+Contributions of variables to PCA
+
+```{r}
+corrplot(all_var$contrib, is.corr = FALSE)
+```
+
+Contribution of variable to PCI & PC2
+
+```{r}
+library(gridExtra)
+p1 <- fviz_contrib(all_pca,
+                   choice = "var",
+                   axes = 1, 
+                   fill = "pink", 
+                   color = "grey", 
+                   top = 10)
+p2<- fviz_contrib(all_pca, 
+                  choice = "var", 
+                  axes = 2, 
+                  fill = "skyblue", 
+                  color = "grey", 
+                  top = 10 )
+grid.arrange(p1,p2, ncol = 2)
+```
+
+
+4.4) See the plot - color variable by group
+
+value centers: put the optimal principal value that we chosen above
+
+```{r}
+set.seed(218)
+res.all <- kmeans(all_var$coord, 
+                  centers = 6, 
+                  nstart = 26)
+grp <- as.factor(res.all$cluster)
+
+fviz_pca_var(all_pca, col.var = grp,
+             palette = "jco",
+             legend.title = "Cluster")
+
+```
+```{r}
+library(factoextra)
+fviz_pca_biplot(all_pca, 
+                col.ind = Breast_Cancer_data$diagnosis, 
+                col = "black", 
+                palette = "jco",
+                geom = "point",
+                repel = TRUE,
+                legend.title = "Diagnosis",
+                addEllipses = TRUE)
+```
+
+5. Apply every ML methods and compare each other and choose best fits
+
+5-1) Make test & train dataset for testing classification ML methods
+
+shuffle the breast_cancer_data(100%) and make train dataset (70%), test dataset (30%)
+
+```{r}
+nrows <- NROW(Breast_Cancer_data)
+
+set.seed(218)
+
+index <- sample(1: nrows, 0.7 * nrows)
+
+train <- Breast_Cancer_data[index,]
+test <- Breast_Cancer_data[-index,]
+```
+
+
+```{r}
+prop.table(table(train$diagnosis))
+```
+
+
+```{r}
+prop.table(table(Breast_Cancer_data$diagnosis))
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(data = Breast_Cancer_data, aes(x = diagnosis) ) + geom_bar(aes(fill = diagnosis))
+
+```
+
+
+# Apply every ML methods to data
+
+```{r}
+library(caret)
+```
+
+### C5.0 Decision Trees and Rule-Based Models
+
+```{r}
+library(C50)
+learn_c50 <- C5.0( train[,-1], train$diagnosis)
+pre_c50<- predict(learn_c50, test[,-1])
+cm_c50<- confusionMatrix(pre_c50, test$diagnosis)
+cm_c50
+```
+
+Choose 'trials' which shows best predict performance in C5.0
+```{r}
+
+acc_test <- numeric()
+accuracy1 <- NULL
+accuracy2<- NULL
+
+for(i in 1:50){
+  
+  learn_imp_c50<- C5.0(train[,-1], train$diagnosis, trials = i)
+  p_c50<- predict(learn_imp_c50, test[,-1])
+  accuracy1<- confusionMatrix(p_c50, test$diagnosis)
+  accuracy2[i]<- accuracy1$overall[1]
+}
+
+acc <- data.frame( t = seq(1,50), cnt = accuracy2)
+
+
+opt_t <- subset(acc, cnt == max(cnt))[1,]
+sub <- paste("Optimal number of trials is", opt_t$t, "(accuracy:", opt_t$cnt,") in C5.0")
+
+library(highcharter)
+hchart( acc, 'line', hcaes(t, cnt)) %>%
+  hc_title( text = "Accurary With Varying Trails (C5.0)") %>%
+  hc_subtitle(text = sub) %>%
+  hc_add_theme(hc_theme_google()) %>%
+  hc_xAxis(title = list(text = "Number of Trails")) %>%
+  hc_yAxis( title = list(text = "Accurary"))
+```
+
+```{r}
+library(rpart)
+
+learn_rp <- rpart( diagnosis~. , data = train, control = rpart.control(minsplit = 2))
+pre_rp <-   predict( learn_rp, test[,-1], type = "class")
+cm_rp <-    confusionMatrix(pre_rp, test$diagnosis)
+cm_rp
+```
+
+```{r}
+library(randomForest)
+learn_rf <- randomForest(diagnosis~. , 
+                         data = train , 
+                         ntree = 500, 
+                         proximity = TRUE, 
+                         importance = TRUE)
+
+pre_rf <- predict( learn_rf, test[,-1])
+cm_rf <- confusionMatrix(pre_rf, test$diagnosis)
+cm_rf
+```
+
+Make KMEANS predict function
+
+we have to make function to predict using kmeans methods, since orgin predict function don't kmaens.
+```{r}
+predict.kmeans<- function(newdata, object){
+  centers <- object$centers
+  n_centers <- nrow(centers)
+  dist_mat <- as.matrix(dist(rbind(centers, newdata)))
+  dist_mat<- dist_mat[-seq(n_centers), seq(n_centers)]
+  max.col(-dist_mat)
+}
+```
+
+apply kmeans
+you know to apply centers to 2, since there are only two factor(benign, malignant)
+
+
+```{r}
+
+library(caret)
+learn_Kmeans <- kmeans(train[,-1], centers = 2)
+
+pre_kmeans <- predict.kmeans(test[,-1], learn_Kmeans)
+pre_kmeans<- as.factor(ifelse(pre_kmeans == 2 ,"Benign", "Malignant"))
+cm_kmeans <- confusionMatrix(pre_kmeans, test$diagnosis)
+cm_kmeans
+```
+
+
+```{r}
+library(factoextra)
+learn_Kmeans$cluster<- ifelse(learn_Kmeans$cluster == 2, "Benign", "Malignant")
+fviz_cluster( learn_Kmeans, data = train[,-1])
+```
+
+
+
+# SVM
+
+```{r}
+library(e1071)
+learn_svm <- svm( diagnosis~., data = train)
+pre_svm <- predict(learn_svm, test[, -1])
+cm_svm<- confusionMatrix(pre_svm, test$diagnosis)
+cm_svm
+```
+
+```{r}
+gamma <- seq(0, 0.1, 0.005)
+cost <- 2^(0:5)
+parms <- expand.grid(cost= cost, gamma = gamma) # 231
+
+acc_test<- numeric()
+accuracy1<- NULL
+accuracy2<- NULL
+  
+for(i in 1:NROW(parms)){
+  learn_svm<- svm( diagnosis~., data = train, gamma = parms$gamma[i], cost = parms$cost[i])
+  pre_svm <- predict(learn_svm, test[,-1])
+  accuracy1<- confusionMatrix(pre_svm, test$diagnosis)
+  accuracy2[i]<- accuracy1$overall[1]
+}
+
+acc <- data.frame( p = seq(1,NROW(parms)), cnt = accuracy2)
+
+
+opt_p <- subset(acc, cnt == max(cnt))[1,]
+sub <- paste("Optimal number of premeter is", opt_p$p, "(accuracy:", opt_p$cnt,") in C5.0")
+
+library(highcharter)
+hchart( acc, 'line', hcaes(p, cnt)) %>%
+  hc_title( text = "Accurary With Varying Trails (C5.0)") %>%
+  hc_subtitle(text = sub) %>%
+  hc_add_theme(hc_theme_google()) %>%
+  hc_xAxis(title = list(text = "Number of Parameters")) %>%
+  hc_yAxis( title = list(text = "Accurary"))
+```
+
+```{r}
+learn_imp_svm <- svm(diagnosis~., data = train, cost = parms$cost[opt_p$p], gamma = parms$gamma[opt_p$p])
+pre_imp_svm<- predict(learn_imp_svm, test[,-1])
+cm_imp_svm <- confusionMatrix(pre_imp_svm, test$diagnosis)
+cm_imp_svm
+```
+
+```{r}
+col<- c("#ed3b3b", "#0099ff")
+
+par(mfrow = c(3,2))
+
+fourfoldplot(cm_c50$table, 
+             color = col, 
+             conf.level = 0, 
+             margin = 1, 
+             main = paste("C5.0. (", round(cm_c50$overall[1]*100), "%)", sep = ""))
+
+
+
+
+
+
+
+```
+
+6. Prepare Patient data for testing function
+
+```{r}
+patient<- read.csv("data.csv", header = TRUE, stringsAsFactors = FALSE)
+patient$X<- NULL
+```
+
+```{r}
+dim(patient)
+```
+
+
+```{r}
+John<- patient[20,]   ## 19th patient
+John[,c(1,2)]         ## Benign
+```
+
+```{r}
+Mary <- patient[19,]    ## 19th patient
+Mary[,c(1,2)]           ## Malignant
+```
+
+Delete diagnois column for testing 
+```{r}
+Mary$diagnosis<- NULL
+John$diagnosis<- NULL
+```
+
+7. Patient Cancer Diagnosis Prediction Function
+
+Use 'Improve SVM Algorithm' as default, Since it's rated as the best predict_model
+
+```{r}
+# for print output 
+cancer_diagnosis_predict_p <- function(new, method = learn_svm){
+  new_pre <- predict(method, new[,-1])
+  new_res<- as.character(new_pre)
+  return(paste("Patient ID:", new[,1], " => Result: ", new_res, sep = ""))
+}
+
+
+# for submission output
+cancer_diagnosis_predict_s <- function(new, method = learn_imp_svm){
+  new_pre <- predict(method, new[,-1])
+  new_res<- as.character(new_pre)
+  return(new_res)
+}
+```
+
+7-2) Testing Function (Use only 1 test data)
+
+- Benign test data 
+
+```{r}
+cancer_diagnosis_predict_p(John)
+```
+
+```{r}
+cancer_diagnosis_predict_p(John, learn_imp_c50)
+```
+
+- Malignant test data
+
+```{r}
+cancer_diagnosis_predict_p(Mary)
+```
+
+```{r}
+cancer_diagnosis_predict_p(Mary, learn_imp_c50)
+
+```
+
+```{r}
+str(patient)
+```
+
+
+Make Submission Output (Use test dataset)
+```{r}
+#library(kableExtra)
+t <- patient[-index,]
+origin<- t$diagnosis
+t$diagnosis<- NULL
+r <- cancer_diagnosis_predict_s(t)
+
+sub <- data.frame(id = t$id, predict_diagnosis = ifelse( r == "Malignant", "M", "B"), origin_diagnosis = origin)
+sub$correct <- ifelse(sub$predict_diagnosis == sub$origin_diagnosis, "True", "False")
+kable(head(sub,20))
+```
+```{r}
+table(sub$correct)
+```
+
+`
+```{r}
+dim(patient)
+```
+
+```{r}
+dim(t)
+```
+
+```{r}
+data<- read.csv("BreastCancer_DATA.csv")
+```
+
+
+```{r}
+head(data,20)
+```
+
+```{r}
+data$diagnosis <- ifelse( data$diagnosis == "M", 1,0)
+```
+
+```{r}
+data$race<- as.numeric(data$race)
+```
+
+
+```{r}
+head(data,10)
+```

@@ -1,0 +1,12 @@
+name: Breast-Cancar-Shiny
+title: Breast-Cancar-Shiny
+username:
+account: nelson2019
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 919059
+bundleId: 2071125
+url: https://nelson2019.shinyapps.io/Breast-Cancar-Shiny/
+when: 1557363992.02653
+asMultiple: FALSE
+asStatic: FALSE
